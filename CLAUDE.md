@@ -81,7 +81,10 @@ Don't change these without asking the owner:
   at the same specificity level; a block `color` blanks less specific
   temperatures. With `apply_on_change` (default true) a block change re-sends
   values to lights that are on and resolve through that schedule, via a normal
-  `light.turn_on`; off lights are never turned on.
+  `light.turn_on`; off lights are never turned on. This lives in
+  `schedule.py` (constants in `const.py`); `__init__.py` only calls
+  `schedule.overlay()` from `LightDefaults.get` and `schedule.track()` from
+  `LightDefaults.track_schedules`, so upstream merges stay small.
 
 ## How it works
 

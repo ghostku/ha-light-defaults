@@ -135,6 +135,6 @@ async def test_already_on_light_not_touched_by_turn_on(hass, freezer):
     [("#8c00ff", (140, 0, 255)), ("8C00FF", (140, 0, 255)), ("140,0,255", (140, 0, 255)), ("140 0 255", (140, 0, 255)), ("nope", None), ("300,0,0", None)],
 )
 def test_parse_color(raw, rgb):
-    from custom_components.light_defaults import _parse_color
+    from custom_components.light_defaults.schedule import parse_color
 
-    assert _parse_color(raw) == rgb
+    assert parse_color(raw) == rgb

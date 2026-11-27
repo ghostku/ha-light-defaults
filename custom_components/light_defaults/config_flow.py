@@ -25,7 +25,7 @@ from homeassistant.const import CONF_ENTITIES, CONF_NAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import selector
 
-from . import (
+from .const import (
     CONF_ALL,
     CONF_APPLY_ON_CHANGE,
     CONF_BRIGHTNESS,
