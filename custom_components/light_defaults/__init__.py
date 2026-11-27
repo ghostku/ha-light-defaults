@@ -56,13 +56,15 @@ from homeassistant.components.light import (
     ATTR_RGB_COLOR,
     ATTR_RGBW_COLOR,
     ATTR_RGBWW_COLOR,
+    ATTR_SUPPORTED_COLOR_MODES,
     ATTR_WHITE,
     ATTR_XY_COLOR,
     DOMAIN as LIGHT_DOMAIN,
+    ColorMode,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_ENTITY_ID, CONF_ENTITIES, SERVICE_RELOAD
-from homeassistant.core import Event, HomeAssistant, ServiceCall, callback
+from homeassistant.core import Event, HomeAssistant, ServiceCall, State, callback
 from homeassistant.helpers import config_validation as cv, entity_registry as er
 from homeassistant.helpers.reload import async_integration_yaml_config
 from homeassistant.helpers.service import async_register_admin_service
@@ -91,6 +93,9 @@ PROFILES_KEY = "light_profiles"
 # (const.ATTR_GROUP_ENTITIES, which older HA doesn't have). HA light groups
 # use the entity_id attribute instead.
 ATTR_GROUP_ENTITIES = "group_entities"
+
+# Modes that can show a color, not just white.
+COLOR_MODES = {ColorMode.HS, ColorMode.RGB, ColorMode.RGBW, ColorMode.RGBWW, ColorMode.XY}
 
 # Color attributes as they look at the defaults step: color_name has already
 # become rgb_color and any `profile:` has already been applied.
@@ -123,7 +128,7 @@ LIGHT_SCHEMA = vol.Schema(
         vol.Optional(CONF_BRIGHTNESS): _value(1, 100),
         vol.Optional(CONF_TEMPERATURE): _value(1000, 10000),
         vol.Optional(CONF_SCHEDULE): cv.entity_domain(SCHEDULE_DOMAIN),
-        vol.Optional(CONF_APPLY_ON_CHANGE, default=True): cv.boolean,
+        vol.Optional(CONF_APPLY_ON_CHANGE): cv.boolean,
     }
 )
 
@@ -150,10 +155,11 @@ CONFIG_SCHEMA = vol.Schema(
 class LightDefaults:
     """Defaults from the YAML config and from UI config entries."""
 
-    # Values (None for `none`) by entity ID, and by CONF_ALL for all lights.
-    # A UI entry replaces the YAML one for the same key.
-    yaml: dict[str, dict[str, int | None]] = field(default_factory=dict)
-    entries: dict[str, dict[str, int | None]] = field(default_factory=dict)
+    # Values (None for `none`), and an optional schedule with apply_on_change,
+    # by entity ID, and by CONF_ALL for all lights. A UI entry replaces the
+    # YAML one for the same key.
+    yaml: dict[str, dict[str, Any]] = field(default_factory=dict)
+    entries: dict[str, dict[str, Any]] = field(default_factory=dict)
     # Excluded lights; excluded in either place counts.
     yaml_excluded: set[str] = field(default_factory=set)
     entries_excluded: set[str] = field(default_factory=set)
@@ -163,20 +169,28 @@ class LightDefaults:
         self.yaml_excluded = set(conf.pop(CONF_EXCLUDE, ()))
         self.yaml = conf
 
-    def get(
-        self, hass: HomeAssistant, entity_id: str, schedules: set[str] | None = None
-    ) -> dict[str, Any]:
+    def get(self, hass: HomeAssistant, entity_id: str) -> dict[str, Any]:
         """What to fill in for a light: each value from the most specific place
-        that sets it. Nothing for excluded lights and HA light groups. A place
-        with a schedule that's on uses its active block's values (schedule.py);
-        the schedules looked at go into `schedules`, if given."""
+        that sets it. Nothing for excluded lights and HA light groups."""
+        return self.resolve(hass, entity_id)[0]
+
+    def resolve(
+        self,
+        hass: HomeAssistant,
+        entity_id: str,
+        lookup: schedule.Lookup | None = None,
+    ) -> tuple[dict[str, Any], dict[str, str | None]]:
+        """get(), plus for each value the schedule it came from (when that
+        schedule updates lights that are on). A place with a schedule that's on
+        uses its active block's values (schedule.merge). `lookup` replaces
+        hass.states.get for reading schedules."""
         excluded = self.yaml_excluded | self.entries_excluded
         if (
             entity_id in excluded
             or _is_light_group(hass, entity_id)
             or any(entity_id in _group_lights(hass, group_id) for group_id in excluded)
         ):
-            return {}
+            return {}, {}
         defaults = {**self.yaml, **self.entries}
         groups = sorted(
             (len(lights), group_id)
@@ -186,17 +200,17 @@ class LightDefaults:
         # Least specific first, so later ones win: all lights, the groups from
         # largest to smallest, then the light's own entry.
         values: dict[str, Any] = {}
+        sources: dict[str, str | None] = {}
         for key in (CONF_ALL, *(group_id for _, group_id in reversed(groups)), entity_id):
-            place = defaults.get(key, {})
-            values.update({k: v for k, v in place.items() if k in VALUES})
-            schedule.overlay(hass, place, values, schedules)
-        return {key: value for key, value in values.items() if value is not None}
+            schedule.merge(defaults.get(key, {}), values, sources, lookup or hass.states.get)
+        values = {key: value for key, value in values.items() if value is not None}
+        return values, {key: sources.get(key) for key in values}
 
     @callback
     def track_schedules(self, hass: HomeAssistant) -> None:
         """Follow the schedules now in use; call after any change to the places."""
         schedule.track(
-            hass, [*self.yaml.values(), *self.entries.values()], self.get, _fill_defaults
+            hass, [*self.yaml.values(), *self.entries.values()], self.resolve, _fill_defaults
         )
 
     def warn_overlap(self, keys: Iterable[str] | None = None) -> None:
@@ -244,13 +258,22 @@ def _group_lights(hass: HomeAssistant, entity_id: str) -> set[str]:
     return found
 
 
-def _fill_defaults(light: dict[str, Any], params: dict[str, Any]) -> None:
+def _has_color(state: State | None) -> bool:
+    """Whether the light can show a color (not just white); unknown counts as yes."""
+    if state is None or not (modes := state.attributes.get(ATTR_SUPPORTED_COLOR_MODES)):
+        return True
+    return any(mode in COLOR_MODES for mode in modes)
+
+
+def _fill_defaults(
+    light: dict[str, Any], params: dict[str, Any], state: State | None = None
+) -> None:
     """Fill in what the call left out. A color (only from a schedule) goes in
-    as rgb_color and wins over a temperature."""
+    as rgb_color for lights that can show one; others get the temperature."""
     if CONF_BRIGHTNESS in light and ATTR_BRIGHTNESS not in params:
         params[ATTR_BRIGHTNESS] = round(255 * light[CONF_BRIGHTNESS] / 100)
     if not any(attr in params for attr in COLOR_ATTRS):
-        if CONF_COLOR in light:
+        if CONF_COLOR in light and _has_color(state):
             params[ATTR_RGB_COLOR] = light[CONF_COLOR]
         elif CONF_TEMPERATURE in light:
             params[ATTR_COLOR_TEMP_KELVIN] = light[CONF_TEMPERATURE]
@@ -282,7 +305,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         try:
             # Only for a light turning on from off, without an effect or flash.
             if not state_on and ATTR_EFFECT not in params and ATTR_FLASH not in params:
-                _fill_defaults(defaults.get(hass, entity_id), params)
+                _fill_defaults(
+                    defaults.get(hass, entity_id), params, hass.states.get(entity_id)
+                )
         except Exception:  # Never let this break light.turn_on.
             _LOGGER.exception("Couldn't apply defaults to %s", entity_id)
         # Any light_profiles.csv defaults still apply to whatever is left.
@@ -306,17 +331,17 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
     @callback
     def entity_id_changed(event: Event[er.EventEntityRegistryUpdatedData]) -> None:
-        """Rename a light in its UI entry; the update listener does the rest."""
+        """Rename a light, or a schedule, in its UI entries; the update listener
+        does the rest."""
         old, new = event.data["old_entity_id"], event.data["entity_id"]
         for entry in hass.config_entries.async_entries(DOMAIN):
-            if old in (lights := entry.options.get(CONF_ENTITIES, ())):
-                hass.config_entries.async_update_entry(
-                    entry,
-                    options={
-                        **entry.options,
-                        CONF_ENTITIES: [new if e == old else e for e in lights],
-                    },
-                )
+            options = dict(entry.options)
+            if old in (lights := options.get(CONF_ENTITIES, ())):
+                options[CONF_ENTITIES] = [new if e == old else e for e in lights]
+            if options.get(CONF_SCHEDULE) == old:
+                options[CONF_SCHEDULE] = new
+            if options != entry.options:
+                hass.config_entries.async_update_entry(entry, options=options)
 
     @callback
     def is_entity_id_change(data: er.EventEntityRegistryUpdatedData) -> bool:

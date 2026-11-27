@@ -1,7 +1,7 @@
 {
   "domain": "light_defaults",
   "name": "Light Defaults",
-  "codeowners": ["@ClayBenson94"],
+  "codeowners": ["@ghostku", "@ClayBenson94"],
   "config_flow": true,
   "dependencies": ["light"],
   "documentation": "https://github.com/ghostku/ha-light-defaults",

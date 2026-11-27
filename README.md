@@ -114,9 +114,10 @@ values:
 
 - `brightness`: percent, 1–100
 - `temperature`: Kelvin, 1000–10000
-- `color`: an RGB color, `"#8c00ff"` or `"140,0,255"` (schedule data only holds
-  plain values, so it's a string). A color beats any temperature set less
-  specifically.
+- `color`: an RGB color, `"#8c00ff"` or `"140,0,255"`. Schedule data only holds
+  plain values, so it's a string, and **keep the quotes** in the block's YAML:
+  an unquoted `#8c00ff` is a YAML comment. A color beats any temperature set
+  less specifically; lights that can only do white keep that temperature.
 
 Add these under each block's **Additional data** in the schedule editor, for
 example `brightness: 10` and `temperature: 2000` for 17:00–23:00, then
@@ -124,10 +125,14 @@ example `brightness: 10` and `temperature: 2000` for 17:00–23:00, then
 schedule is off) the entry's own values apply, if it has any.
 
 With **Update lights that are on** (`apply_on_change`, on by default), lights
-that are on are set to the new block's values when the schedule moves to
-another block. Lights that are off are never turned on; they get the new values
-the next time they turn on, in the same command, so there's no flash of the old
-state.
+that are on get the values that came from the schedule and changed, when it
+moves to another block or its last block ends (then they go back to the
+entry's own values). Values the schedule doesn't drive on that light, a light
+with a running effect, and the moment the schedule first loads (HA start) are
+left alone, so manual changes stay. A native (Zigbee2MQTT/ZHA) group gets one
+command for its members. Lights that are off are never turned on; they get the
+new values the next time they turn on, in the same command, so there's no
+flash of the old state.
 
 ```yaml
 light_defaults:
