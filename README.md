@@ -5,10 +5,14 @@ light turns on from off and the call leaves out brightness or color, the
 defaults fill the gap instead of the light coming back at whatever it was last
 set to.
 
+This fork adds **defaults that follow a schedule**, including RGB colors: point
+a light's entry at a schedule helper, and the active block's data becomes the
+default (see [Defaults from a schedule](#defaults-from-a-schedule)).
+
 ## Install
 
 1. In HACS, open the ⋮ menu → **Custom repositories**, add
-   `https://github.com/ClayBenson94/ha-light-defaults` with type **Integration**.
+   `https://github.com/ghostku/ha-light-defaults` with type **Integration**.
 2. Download **Light Defaults**.
 3. Restart Home Assistant, then set up your lights in the UI or in YAML
    (below).
@@ -101,6 +105,45 @@ warning naming it. The UI's defaults for all lights replace YAML's `all` the
 same way. A light excluded in either place is excluded, even if it has an
 entry in the other (that logs a warning too). Lights only in YAML keep working
 as before.
+
+### Defaults from a schedule
+
+Give an entry (some lights, or all lights) a **schedule** helper. While one of
+its blocks is active, the block's additional data wins over the entry's own
+values:
+
+- `brightness`: percent, 1–100
+- `temperature`: Kelvin, 1000–10000
+- `color`: an RGB color, `"#8c00ff"` or `"140,0,255"`. Schedule data only holds
+  plain values, so it's a string, and **keep the quotes** in the block's YAML:
+  an unquoted `#8c00ff` is a YAML comment. A color beats any temperature set
+  less specifically; lights that can only do white keep that temperature.
+
+Add these under each block's **Additional data** in the schedule editor, for
+example `brightness: 10` and `temperature: 2000` for 17:00–23:00, then
+`brightness: 20` and `color: "#8c00ff"` for 23:00–07:00. Outside any block (the
+schedule is off) the entry's own values apply, if it has any.
+
+With **Update lights that are on** (`apply_on_change`, on by default), lights
+that are on get the values that came from the schedule and changed, when it
+moves to another block or its last block ends (then they go back to the
+entry's own values). Values the schedule doesn't drive on that light, a light
+with a running effect, and the moment the schedule first loads (HA start) are
+left alone, so manual changes stay. A native (Zigbee2MQTT/ZHA) group gets one
+command for its members. Lights that are off are never turned on; they get the
+new values the next time they turn on, in the same command, so there's no
+flash of the old state.
+
+```yaml
+light_defaults:
+  light.cabinet_ceiling_light:
+    schedule: schedule.cabinet_light
+  light.kitchen_ceiling_light:
+    brightness: 100        # outside the schedule's blocks
+    temperature: 4000
+    schedule: schedule.kitchen_light
+    apply_on_change: false
+```
 
 ## Behavior
 

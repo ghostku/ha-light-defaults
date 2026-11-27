@@ -18,13 +18,17 @@
           "name": "Name",
           "brightness": "Brightness",
           "temperature": "Color temperature",
-          "no_default": "No default for"
+          "no_default": "No default for",
+          "schedule": "Schedule",
+          "apply_on_change": "Update lights that are on"
         },
         "data_description": {
           "entities": "Lights already in another entry, excluded lights included, aren't listed.",
           "name": "Shown on the Light Defaults page. Leave empty to use the light names.",
           "temperature": "Color lights switch to white. Lights with neither color nor color temperature ignore this.",
-          "no_default": "These lights keep their usual behavior for what you pick here, even if a group or the defaults for all lights set it. Overrides the value above."
+          "no_default": "These lights keep their usual behavior for what you pick here, even if a group or the defaults for all lights set it. Overrides the value above.",
+          "schedule": "A schedule helper. While one of its blocks is active, the block's data wins over the values above: brightness (percent), temperature (Kelvin) or color (\"#8c00ff\" or \"140,0,255\"). Add these as additional data on each block.",
+          "apply_on_change": "When the schedule moves to another block, set lights that are on to the new values. Lights that are off just get them the next time they turn on."
         }
       },
       "all": {
@@ -32,10 +36,14 @@
         "description": "Used for any value a light's own entry, or a group it's in, leaves out. Excluded lights never get these.",
         "data": {
           "brightness": "Brightness",
-          "temperature": "Color temperature"
+          "temperature": "Color temperature",
+          "schedule": "Schedule",
+          "apply_on_change": "Update lights that are on"
         },
         "data_description": {
-          "temperature": "Color lights switch to white. Lights with neither color nor color temperature ignore this."
+          "temperature": "Color lights switch to white. Lights with neither color nor color temperature ignore this.",
+          "schedule": "A schedule helper. While one of its blocks is active, the block's data wins over the values above: brightness (percent), temperature (Kelvin) or color (\"#8c00ff\" or \"140,0,255\"). Add these as additional data on each block.",
+          "apply_on_change": "When the schedule moves to another block, set lights that are on to the new values. Lights that are off just get them the next time they turn on."
         }
       },
       "exclude": {
@@ -52,8 +60,8 @@
     "error": {
       "no_lights": "Pick at least one light.",
       "already_configured": "Some of these lights were just added to another entry.",
-      "no_defaults": "Set a value, or pick one under No default for.",
-      "no_values": "Set a brightness, a color temperature or both."
+      "no_defaults": "Set a value, pick a schedule, or pick one under No default for.",
+      "no_values": "Set a brightness, a color temperature or a schedule."
     },
     "abort": {
       "already_configured": "That's already set up. Use Configure on its entry to change it.",
@@ -69,12 +77,16 @@
           "entities": "Lights",
           "brightness": "Brightness",
           "temperature": "Color temperature",
-          "no_default": "No default for"
+          "no_default": "No default for",
+          "schedule": "Schedule",
+          "apply_on_change": "Update lights that are on"
         },
         "data_description": {
           "entities": "Lights already in another entry, excluded lights included, aren't listed.",
           "temperature": "Color lights switch to white. Lights with neither color nor color temperature ignore this.",
-          "no_default": "These lights keep their usual behavior for what you pick here, even if a group or the defaults for all lights set it. Overrides the value above."
+          "no_default": "These lights keep their usual behavior for what you pick here, even if a group or the defaults for all lights set it. Overrides the value above.",
+          "schedule": "A schedule helper. While one of its blocks is active, the block's data wins over the values above: brightness (percent), temperature (Kelvin) or color (\"#8c00ff\" or \"140,0,255\"). Add these as additional data on each block.",
+          "apply_on_change": "When the schedule moves to another block, set lights that are on to the new values. Lights that are off just get them the next time they turn on."
         }
       },
       "all": {
@@ -82,10 +94,14 @@
         "description": "Used for any value a light's own entry, or a group it's in, leaves out. Excluded lights never get these.",
         "data": {
           "brightness": "Brightness",
-          "temperature": "Color temperature"
+          "temperature": "Color temperature",
+          "schedule": "Schedule",
+          "apply_on_change": "Update lights that are on"
         },
         "data_description": {
-          "temperature": "Color lights switch to white. Lights with neither color nor color temperature ignore this."
+          "temperature": "Color lights switch to white. Lights with neither color nor color temperature ignore this.",
+          "schedule": "A schedule helper. While one of its blocks is active, the block's data wins over the values above: brightness (percent), temperature (Kelvin) or color (\"#8c00ff\" or \"140,0,255\"). Add these as additional data on each block.",
+          "apply_on_change": "When the schedule moves to another block, set lights that are on to the new values. Lights that are off just get them the next time they turn on."
         }
       },
       "exclude": {
@@ -102,8 +118,8 @@
     "error": {
       "no_lights": "Pick at least one light.",
       "already_configured": "Some of these lights were just added to another entry.",
-      "no_defaults": "Set a value, or pick one under No default for.",
-      "no_values": "Set a brightness, a color temperature or both."
+      "no_defaults": "Set a value, pick a schedule, or pick one under No default for.",
+      "no_values": "Set a brightness, a color temperature or a schedule."
     }
   },
   "selector": {

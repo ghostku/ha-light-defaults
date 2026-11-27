@@ -546,3 +546,24 @@ async def test_translations_cover_the_flows(hass, lights):
         assert set(strings[flow]["error"]) == errors
     assert set(strings["config"]["abort"]) == {"already_configured", "already_in_progress"}
     assert set(strings["selector"]["no_default"]["options"]) == {"brightness", "temperature"}
+
+
+async def test_a_schedule_alone_is_enough(hass, lights):
+    assert await async_setup_component(
+        hass,
+        "schedule",
+        {"schedule": {"evening": {"name": "Evening"}}},
+    )
+    result = await start_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {"entities": ["light.ct_lamp"], "schedule": "schedule.evening", "apply_on_change": False},
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["options"] == {
+        "entities": ["light.ct_lamp"],
+        "schedule": "schedule.evening",
+        "apply_on_change": False,
+    }
+    # The schedule is off, so there's nothing to fill in.
+    assert await turn_on(hass, lights, "light.ct_lamp") == {}

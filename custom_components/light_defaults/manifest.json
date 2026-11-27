@@ -1,12 +1,12 @@
 {
   "domain": "light_defaults",
   "name": "Light Defaults",
-  "codeowners": ["@ClayBenson94"],
+  "codeowners": ["@ghostku", "@ClayBenson94"],
   "config_flow": true,
   "dependencies": ["light"],
-  "documentation": "https://github.com/ClayBenson94/ha-light-defaults",
+  "documentation": "https://github.com/ghostku/ha-light-defaults",
   "iot_class": "calculated",
-  "issue_tracker": "https://github.com/ClayBenson94/ha-light-defaults/issues",
+  "issue_tracker": "https://github.com/ghostku/ha-light-defaults/issues",
   "requirements": [],
-  "version": "1.3.0"
+  "version": "1.4.0"
 }
