@@ -10,7 +10,6 @@ are off are never turned on.
 
 from collections.abc import Callable, Iterable, Mapping
 import logging
-import re
 from typing import Any
 
 from homeassistant.components.light import ATTR_EFFECT, DOMAIN as LIGHT_DOMAIN
@@ -41,6 +40,7 @@ from .const import (
     DOMAIN,
     VALUES,
 )
+from .values import parse_color, whole_number
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -60,33 +60,6 @@ Resolve = Callable[[HomeAssistant, str, Lookup | None], tuple[dict[str, Any], di
 Fill = Callable[[dict[str, Any], dict[str, Any], State | None], None]
 
 
-def parse_color(value: Any) -> tuple[int, int, int] | None:
-    """An RGB color from a schedule block: "#8c00ff" or "140,0,255"."""
-    text = str(value).strip()
-    if m := re.fullmatch(r"#([0-9a-fA-F]{6})", text):
-        hex_ = m.group(1)
-        return int(hex_[0:2], 16), int(hex_[2:4], 16), int(hex_[4:6], 16)
-    if m := re.fullmatch(r"(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})", text):
-        rgb = tuple(int(part) for part in m.groups())
-        if all(part <= 255 for part in rgb):
-            return rgb  # type: ignore[return-value]
-    return None
-
-
-def _number(schedule_id: str, key: str, raw: Any, low: int, high: int) -> int | None:
-    """A whole number in range from block data, or None (logged)."""
-    try:
-        if isinstance(raw, bool):
-            raise ValueError
-        number = round(float(raw))
-    except (TypeError, ValueError, OverflowError):
-        number = None
-    if number is None or not low <= number <= high:
-        _LOGGER.warning("%s: %s %r isn't %d–%d, ignored", schedule_id, key, raw, low, high)
-        return None
-    return number
-
-
 def block_values(state: State | None, schedule_id: str) -> dict[str, Any]:
     """The active block's values, or nothing when the schedule is off or
     missing. Values that don't parse are logged and left out."""
@@ -95,7 +68,11 @@ def block_values(state: State | None, schedule_id: str) -> dict[str, Any]:
     attrs = state.attributes
     values: dict[str, Any] = {}
     for key, low, high in ((CONF_BRIGHTNESS, 1, 100), (CONF_TEMPERATURE, 1000, 10000)):
-        if key in attrs and (number := _number(schedule_id, key, attrs[key], low, high)):
+        if key not in attrs:
+            continue
+        if (number := whole_number(attrs[key], low, high)) is None:
+            _LOGGER.warning("%s: %s %r isn't %d–%d, ignored", schedule_id, key, attrs[key], low, high)
+        else:
             values[key] = number
     if CONF_COLOR in attrs:
         if (color := parse_color(attrs[CONF_COLOR])) is None:

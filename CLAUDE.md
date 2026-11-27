@@ -88,7 +88,7 @@ Don't change these without asking the owner:
   lights, lights with an effect, and the schedule's first appearance are
   skipped. `LightDefaults.resolve()` returns values plus the source schedule
   per value; this lives in `schedule.py` (`merge`, `track`; constants in
-  `const.py`), so `__init__.py` stays close to upstream.
+  `const.py`, parsing raw values like colors in `values.py`), so `__init__.py` stays close to upstream.
 
 ## How it works
 
