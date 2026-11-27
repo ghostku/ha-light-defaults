@@ -25,7 +25,17 @@ from homeassistant.const import CONF_ENTITIES, CONF_NAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import selector
 
-from . import CONF_ALL, CONF_BRIGHTNESS, CONF_EXCLUDE, CONF_TEMPERATURE, DOMAIN, VALUES
+from . import (
+    CONF_ALL,
+    CONF_APPLY_ON_CHANGE,
+    CONF_BRIGHTNESS,
+    CONF_EXCLUDE,
+    CONF_SCHEDULE,
+    CONF_TEMPERATURE,
+    DOMAIN,
+    SCHEDULE_DOMAIN,
+    VALUES,
+)
 
 # Form only: the values a set of lights gets `none` for.
 CONF_NO_DEFAULT = "no_default"
@@ -52,6 +62,14 @@ VALUE_FIELDS = {
             mode=selector.NumberSelectorMode.SLIDER,
         )
     ),
+}
+
+# A schedule helper whose active block's data overrides the values above.
+SCHEDULE_FIELDS = {
+    vol.Optional(CONF_SCHEDULE): selector.EntitySelector(
+        selector.EntitySelectorConfig(domain=SCHEDULE_DOMAIN)
+    ),
+    vol.Optional(CONF_APPLY_ON_CHANGE, default=True): selector.BooleanSelector(),
 }
 
 NO_DEFAULT_FIELD = {
@@ -92,10 +110,15 @@ def _lights_field(hass: HomeAssistant, entry_id: str | None = None) -> dict:
 def _fields(hass: HomeAssistant, kind: str | None, entry_id: str | None = None) -> dict:
     """The form fields for an entry; kind is its unique ID (None for lights)."""
     if kind == CONF_ALL:
-        return VALUE_FIELDS
+        return {**VALUE_FIELDS, **SCHEDULE_FIELDS}
     if kind == CONF_EXCLUDE:
         return _lights_field(hass, entry_id)
-    return {**_lights_field(hass, entry_id), **VALUE_FIELDS, **NO_DEFAULT_FIELD}
+    return {
+        **_lights_field(hass, entry_id),
+        **VALUE_FIELDS,
+        **SCHEDULE_FIELDS,
+        **NO_DEFAULT_FIELD,
+    }
 
 
 def _form_values(options: Mapping[str, Any]) -> dict[str, Any]:
@@ -129,7 +152,10 @@ def _options(
         # A value picked under No default for overrides its slider, since the
         # form can't disable the slider when the box is ticked.
         values |= dict.fromkeys(user_input.get(CONF_NO_DEFAULT, []))
-        if not values:
+        if schedule := user_input.get(CONF_SCHEDULE):
+            options[CONF_SCHEDULE] = schedule
+            options[CONF_APPLY_ON_CHANGE] = user_input.get(CONF_APPLY_ON_CHANGE, True)
+        elif not values:
             errors["base"] = "no_values" if kind == CONF_ALL else "no_defaults"
         options |= values
     return None if errors else options
@@ -168,6 +194,7 @@ class LightDefaultsConfigFlow(ConfigFlow, domain=DOMAIN):
                 **_lights_field(self.hass),
                 vol.Optional(CONF_NAME): selector.TextSelector(),
                 **VALUE_FIELDS,
+                **SCHEDULE_FIELDS,
                 **NO_DEFAULT_FIELD,
             }
         )

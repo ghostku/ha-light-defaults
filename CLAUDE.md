@@ -75,6 +75,14 @@ Don't change these without asking the owner:
   and excluded lights. Reload only touches the YAML side; UI changes apply as
   soon as the flow saves.
 
+- Fork addition (owner: ghostku): an entry may name a `schedule` helper.
+  While it's on, the active block's data (`brightness`, `temperature`, `color`
+  as "#rrggbb" or "r,g,b") overrides that entry's own values, per attribute,
+  at the same specificity level; a block `color` blanks less specific
+  temperatures. With `apply_on_change` (default true) a block change re-sends
+  values to lights that are on and resolve through that schedule, via a normal
+  `light.turn_on`; off lights are never turned on.
+
 ## How it works
 
 `custom_components/light_defaults/__init__.py` replaces `apply_default` on the
